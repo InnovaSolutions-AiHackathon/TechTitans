@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./backend:/app/backend
+      - ./prompts:/app/prompts
+    command: bash -lc "pip install fastapi uvicorn pydantic python-multipart pypdf python-dotenv anthropic ollama pytest && uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: bash -lc "npm install && npm run dev -- --host 0.0.0.0 --port 3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api

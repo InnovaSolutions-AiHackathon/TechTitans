@@ -1,0 +1,571 @@
+/* Dashboard — mint / teal “greenish” terminal */
+
+.Dashboard {
+  --dash-mint: #f0fdf4;
+  --dash-mint2: #ecfdf5;
+  --dash-border: rgba(45, 212, 191, 0.35);
+  --dash-card: linear-gradient(165deg, #ffffff 0%, #f7fef9 55%, #f0fdf4 100%);
+  position: relative;
+  min-height: auto;
+  background: transparent;
+  color: #064e3b;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  padding-bottom: 48px;
+}
+
+.DashboardTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.Dashboard-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #059669;
+  margin: 0;
+}
+
+.DashboardRefreshBtn {
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: #047857;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.DashboardRefreshBtn:hover:not(:disabled) {
+  background: #ecfdf5;
+}
+
+.DashboardRefreshBtn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.DashboardBanner {
+  background: rgba(254, 252, 232, 0.95);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  color: #854d0e;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin: 0 0 14px;
+  line-height: 1.45;
+}
+
+.DashboardHint {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.DashboardHint--pad {
+  padding: 20px 18px;
+  margin: 0;
+}
+
+/* —— Row 1: tickers + risk —— */
+.DashboardTopRow {
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 300px);
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .DashboardTopRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.DashboardTickerStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .DashboardTickerStrip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.DashboardTickerCard {
+  text-align: left;
+  border: 1px solid var(--dash-border);
+  border-radius: 12px;
+  background: var(--dash-card);
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.08);
+  padding: 14px 14px 12px;
+  cursor: pointer;
+  transition:
+    box-shadow 0.2s,
+    border-color 0.2s;
+  font: inherit;
+  color: inherit;
+}
+
+.DashboardTickerCard:hover {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 6px 20px rgba(5, 150, 105, 0.12);
+}
+
+.DashboardTickerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.DashboardTickerSym {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #0d9488;
+}
+
+.DashSpark {
+  width: 72px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.DashboardTickerPrice {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.DashboardTickerPct {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.DashboardTickerPct--pos {
+  color: #059669;
+}
+
+.DashboardTickerPct--neg {
+  color: #dc2626;
+}
+
+.DashboardRiskCard {
+  border: 1px solid var(--dash-border);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 55%);
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.1);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.DashboardRiskTitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #059669;
+  margin-bottom: 12px;
+}
+
+.DashboardRiskBody {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.DashboardGauge {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+}
+
+.DashboardGaugeSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.DashboardGaugeTrack {
+  fill: none;
+  stroke: #d1fae5;
+  stroke-width: 10;
+}
+
+.DashboardGaugeFill {
+  fill: none;
+  stroke: #0d9488;
+  stroke-width: 10;
+  stroke-linecap: round;
+  transform-origin: 50px 50px;
+}
+
+.DashboardGaugeNum {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #047857;
+}
+
+.DashboardRiskCopy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #166534;
+}
+
+/* —— Row 2: chart + insights —— */
+.DashboardMidRow {
+  display: grid;
+  grid-template-columns: 1fr minmax(280px, 340px);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .DashboardMidRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.DashboardChartCard {
+  border: 1px solid var(--dash-border);
+  border-radius: 12px;
+  background: var(--dash-card);
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.08);
+  padding: 18px 20px 14px;
+}
+
+.DashboardChartHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.DashboardChartTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #065f46;
+  margin: 0;
+}
+
+.DashboardChartSub {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5eead4;
+  margin-top: 4px;
+}
+
+.DashboardTf {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(209, 250, 229, 0.85);
+  border: 1px solid rgba(167, 243, 208, 0.8);
+}
+
+.DashboardTfBtn {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.DashboardTfBtn--on {
+  background: #fff;
+  color: #047857;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.15);
+}
+
+.DashboardBars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 180px;
+  padding: 8px 4px 0;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f7fef9 45%, #ffffff 100%);
+  border: 1px solid rgba(167, 243, 208, 0.65);
+}
+
+.DashboardBarCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
+}
+
+.DashboardRevBar {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #a7f3d0, #6ee7b7);
+  min-height: 8px;
+  transition: height 0.3s;
+}
+
+.DashboardRevBar--hi {
+  background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.DashboardBarLbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0d9488;
+  margin-top: 8px;
+}
+
+.DashboardChartFoot {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #047857;
+}
+
+.DashboardInsightCard {
+  border: 1px solid var(--dash-border);
+  border-radius: 12px;
+  background: linear-gradient(160deg, #f7fef9 0%, #ffffff 70%);
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.07);
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.DashboardInsightHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.DashboardInsightIcon {
+  color: #14b8a6;
+  display: flex;
+}
+
+.DashboardInsightTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.DashboardInsightList {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #166534;
+}
+
+.DashboardInsightList li {
+  margin-bottom: 8px;
+}
+
+.DashboardCitations {
+  margin-top: auto;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: inherit;
+}
+
+.DashboardCitationsLink {
+  color: #047857;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* —— Documents table —— */
+.DashboardTableCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.DashboardTableHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.DashboardTableTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.DashboardNewBtn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.DashboardNewBtn:hover {
+  filter: brightness(1.05);
+}
+
+.DashboardTableWrap {
+  overflow-x: auto;
+}
+
+.DashboardTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.DashboardTable th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafafa;
+}
+
+.DashboardTable td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.DashboardTdFile {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.DashboardTdMuted {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.DashboardSentTag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.DashboardSentTag--bullish {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+}
+
+.DashboardSentTag--neutral {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.DashboardSentTag--bearish {
+  background: rgba(244, 63, 94, 0.12);
+  color: #be123c;
+}
+
+.DashboardViewBtn {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.DashboardViewBtn:hover {
+  color: #0d9488;
+  border-color: #99f6e4;
+}
+
+/* Floating chat */
+.DashboardFab {
+  position: fixed;
+  right: 24px;
+  bottom: 88px;
+  z-index: 30;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  display: grid;
+  place-items: center;
+  transition: transform 0.15s;
+}
+
+.DashboardFab:hover {
+  transform: scale(1.05);
+}
+
+@media (max-width: 960px) {
+  .DashboardFab {
+    bottom: 100px;
+    right: 16px;
+  }
+}

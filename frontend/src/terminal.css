@@ -1,0 +1,380 @@
+/* Tech Titans terminal shell — mint / teal theme */
+
+.TerminalShell {
+  display: flex;
+  min-height: 100%;
+  flex: 1;
+  width: 100%;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 50%, #ecfdf5 100%);
+}
+
+.TerminalShell-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #f7fef9 0%, #f0fdf4 100%);
+  border-right: 1px solid rgba(16, 185, 129, 0.22);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px 16px;
+  min-height: calc(100svh - 0px);
+  box-sizing: border-box;
+}
+
+.TerminalShell-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 20px;
+  border-bottom: 1px solid rgba(167, 243, 208, 0.5);
+  margin-bottom: 12px;
+}
+
+.TerminalShell-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #0d9488, #14b8a6);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  display: grid;
+  place-items: center;
+  letter-spacing: -0.02em;
+}
+
+.TerminalShell-title {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #065f46;
+  line-height: 1.2;
+}
+
+.TerminalShell-version {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #6ee7b7;
+  margin-top: 2px;
+}
+
+.TerminalShell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.TerminalShell-navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.TerminalShell-navItem:hover {
+  background: rgba(209, 250, 229, 0.65);
+  color: #064e3b;
+}
+
+.TerminalShell-navItem--active {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.18) 0%, rgba(209, 250, 229, 0.45) 100%);
+  color: #047857;
+  box-shadow: inset 3px 0 0 #059669;
+}
+
+.TerminalShell-navItem--ghost {
+  opacity: 0.85;
+}
+
+.TerminalShell-navItem:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.TerminalShell-navIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.TerminalShell-navItem--active .TerminalShell-navIcon {
+  color: #0d9488;
+}
+
+.TerminalShell-sidebarFooter {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(167, 243, 208, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.TerminalShell-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.TerminalShell-userAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #a7f3d0, #6ee7b7);
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.TerminalShell-userName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #064e3b;
+}
+
+.TerminalShell-userRole {
+  font-size: 11px;
+  color: #0d9488;
+}
+
+.TerminalShell-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 100%);
+}
+
+.TerminalShell-header {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(167, 243, 208, 0.55);
+  backdrop-filter: blur(8px);
+}
+
+.TerminalShell-searchWrap {
+  flex: 1;
+  max-width: 560px;
+  position: relative;
+}
+
+.TerminalShell-searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  display: flex;
+  pointer-events: none;
+}
+
+.TerminalShell-search {
+  width: 100%;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  padding: 0 14px 0 40px;
+  font-size: 13px;
+  background: rgba(240, 253, 244, 0.95);
+  color: #475569;
+}
+
+.TerminalShell-headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.TerminalShell-iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #0d9488;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.TerminalShell-marketPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.TerminalShell-marketDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+.TerminalShell-signOut {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #047857;
+  cursor: pointer;
+}
+
+.TerminalShell-signOut:hover {
+  background: rgba(209, 250, 229, 0.75);
+}
+
+.TerminalShell-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  /* Mint graph-paper grid */
+  background-color: #f0fdf9;
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.TerminalShell-body > * {
+  position: relative;
+  z-index: 1;
+}
+
+.TerminalShell-page {
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 18px 22px 28px;
+  box-sizing: border-box;
+}
+
+.AppRoot--terminal {
+  background: linear-gradient(160deg, #d1fae5 0%, #ecfdf5 35%, #f0fdf4 100%);
+}
+
+/* Landing / sign-in — Sovereign-style light shell (does not affect logged-in Research) */
+.AuthWrap--sa {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 45%, #e2e8f0 100%);
+  border: none;
+}
+
+.AuthWrap--sa .LandingIntro {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.AuthWrap--sa .LandingHeading {
+  color: #0f172a;
+  text-shadow: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+}
+
+.AuthWrap--sa .LandingHeading span,
+.AuthWrap--sa .LandingHeading .accent {
+  color: #0d9488;
+}
+
+.AuthWrap--sa .LandingSub {
+  color: #64748b;
+}
+
+.AuthWrap--sa .AuthCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.08);
+}
+
+.AuthWrap--sa .Btn {
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  border: 1px solid #0f766e;
+  color: #ffffff;
+}
+
+.AuthWrap--sa .Btn:hover {
+  filter: brightness(1.05);
+}
+
+/* Nested pages: avoid forcing full viewport inside terminal */
+.TerminalShell-page .Dashboard,
+.TerminalShell-page .CompanyDetail,
+.TerminalShell-page .CompareWrap {
+  min-height: auto;
+}
+
+.TerminalShell-statusBar {
+  flex-shrink: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  color: #0d9488;
+  background: rgba(236, 253, 245, 0.95);
+  border-top: 1px solid rgba(167, 243, 208, 0.65);
+}
+
+@media (max-width: 960px) {
+  .TerminalShell {
+    flex-direction: column;
+  }
+
+  .TerminalShell-sidebar {
+    width: 100%;
+    min-height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .TerminalShell-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .TerminalShell-sidebarFooter {
+    width: 100%;
+  }
+}
