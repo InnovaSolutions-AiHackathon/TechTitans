@@ -91,11 +91,14 @@ function FeatureCard({
 
 export default function FinancialApp() {
   // The frontend talks to the FastAPI backend.
-  // Default backend port (8000) when no env var is provided.
-  const backendBase = useMemo(
-    () => import.meta.env.VITE_BACKEND_BASE_URL || 'http://127.0.0.1:8000',
-    [],
-  )
+  // In dev, use same-origin `/api` (Vite proxy → :8000) so fetch works for both
+  // localhost and 127.0.0.1. Override with VITE_BACKEND_BASE_URL when needed.
+  const backendBase = useMemo(() => {
+    const env = import.meta.env.VITE_BACKEND_BASE_URL
+    if (env && String(env).trim()) return String(env).replace(/\/$/, '')
+    if (import.meta.env.DEV) return ''
+    return 'http://127.0.0.1:8000'
+  }, [])
 
   const [token, setToken] = useState<string | null>(null)
   /** Pre-auth: marketing landing vs sign-in card */
