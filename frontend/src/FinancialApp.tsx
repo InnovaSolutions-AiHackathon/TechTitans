@@ -102,7 +102,7 @@ export default function FinancialApp() {
 
   const [token, setToken] = useState<string | null>(null)
   /** Pre-auth: marketing landing vs sign-in card */
-  const [authScreen, setAuthScreen] = useState<'landing' | 'signin'>('landing')
+  const [authScreen, setAuthScreen] = useState<'landing' | 'signin' | 'signup'>('landing')
   const [uploadId, setUploadId] = useState<string | null>(null)
   const [reports, setReports] = useState<Reports | null>(null)
 
@@ -112,6 +112,10 @@ export default function FinancialApp() {
   // Login form
   const [username, setUsername] = useState('tecttitans')
   const [password, setPassword] = useState('Tt2026')
+
+  // Signup form
+  const [signupUsername, setSignupUsername] = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
 
   // Company list (SEC 10-K filers) for dropdown
   const [companyList, setCompanyList] = useState<Array<{ ticker: string; filer_name: string }>>([])
@@ -248,6 +252,28 @@ flowchart TD
       }
       const data = await res.json()
       setToken(data.token)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function apiSignup() {
+    setError(null)
+    setBusy(true)
+    try {
+      const res = await fetch(`${backendBase}/api/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: signupUsername, password: signupPassword }),
+      })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      const data = await res.json()
+      setToken(data.token)
+      setSignupPassword('')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -1229,8 +1255,96 @@ flowchart TD
             <button className="Btn" disabled={busy} onClick={apiLogin}>
               {busy ? 'Signing in…' : 'Sign In'}
             </button>
+            <button
+              type="button"
+              className="Btn BtnSecondary"
+              disabled={busy}
+              style={{ width: '100%', marginTop: 10 }}
+              onClick={() => {
+                setError(null)
+                setSignupUsername('')
+                setSignupPassword('')
+                setAuthScreen('signup')
+              }}
+            >
+              Create account
+            </button>
             <div className="Hint">
               Defaults: <b>tecttitans</b> / <b>Tt2026</b>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!token && authScreen === 'signup' ? (
+        <div className="AuthWrap AuthWrap--sa">
+          <FloatingLines
+            linesGradient={['#102859', '#cbf6ed', '#f2faf6', '#d8f8f0']}
+            enabledWaves={['top', 'middle', 'bottom']}
+            lineCount={[6, 6, 6]}
+            lineDistance={[5, 5, 5]}
+            animationSpeed={1}
+            interactive={true}
+            parallax={true}
+            parallaxStrength={0.2}
+            mixBlendMode="screen"
+            bendRadius={5.0}
+            bendStrength={-0.5}
+          />
+
+          <section className="LandingIntro" aria-label="Sign up intro">
+            <div className="LandingHeading">
+              Financial Research — <span className="accent">Sign up</span>
+            </div>
+            <div className="LandingSub">Create a local account (prototype mode)</div>
+          </section>
+
+          <div className="AuthCard">
+            <button
+              type="button"
+              className="Btn BtnGhost"
+              style={{ marginBottom: 12, width: '100%' }}
+              onClick={() => {
+                setError(null)
+                setSignupUsername('')
+                setSignupPassword('')
+                setAuthScreen('signin')
+              }}
+            >
+              ← Back to sign in
+            </button>
+            <div className="AuthTitle">Sign Up</div>
+            <div className="AuthSub">Create a new local user</div>
+
+            <label className="Label">
+              Username
+              <input
+                className="Input"
+                value={signupUsername}
+                onChange={(e) => setSignupUsername(e.target.value)}
+                placeholder="e.g. alice"
+              />
+            </label>
+
+            <label className="Label">
+              Password
+              <input
+                className="Input"
+                type="password"
+                value={signupPassword}
+                onChange={(e) => setSignupPassword(e.target.value)}
+                placeholder="min 4 chars"
+              />
+            </label>
+
+            {error ? <div className="Alert AlertDanger">{error}</div> : null}
+
+            <button className="Btn BtnSecondary" disabled={busy} onClick={apiSignup}>
+              {busy ? 'Creating…' : 'Create account'}
+            </button>
+
+            <div className="Hint">
+              Accounts are stored in-memory on the backend; restart clears them.
             </div>
           </div>
         </div>

@@ -85,6 +85,11 @@ class LoginOut(BaseModel):
     token: str
 
 
+class SignupIn(BaseModel):
+    username: str
+    password: str
+
+
 def _require_token(credentials: HTTPAuthorizationCredentials = Depends(bearer)) -> str:
     if not credentials or not credentials.credentials:
         raise HTTPException(status_code=401, detail="Missing token")
@@ -308,6 +313,24 @@ def login(payload: LoginIn) -> LoginOut:
     token = auth_service.login(payload.username, payload.password)
     if not token:
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    return LoginOut(token=token)
+
+
+@app.post("/api/signup", response_model=LoginOut)
+def signup(payload: SignupIn) -> LoginOut:
+    username = (payload.username or "").strip()
+    password = payload.password or ""
+
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+
+    token = auth_service.signup(username, password)
+    if not token:
+        raise HTTPException(status_code=409, detail="Username already exists")
+
+    # Signup returns a token so the UI can immediately proceed.
     return LoginOut(token=token)
 
 
@@ -673,7 +696,9 @@ def _extract_sec_key_points(text: str) -> List[str]:
     form_m = re.search(r"\bFORM\s+([0-9A-Z\-]+)\b", t, flags=re.IGNORECASE)
     if form_m:
         points.append(f"Filing type: Form {form_m.group(1).upper()}")
-    comp_m = re.search(r"\b([A-Z][A-Za-z0-9&\.,\- ]{2,80}Inc\.)\b", t)
+    # `Inc.` ends with '.' (a non-word char), so a trailing `\b` boundary won't match reliably.
+    # Use only a leading word boundary and let the match end at the period.
+    comp_m = re.search(r"\b([A-Z][A-Za-z0-9&\.,\- ]{2,80}Inc\.)", t)
     if comp_m:
         points.append(f"Company: {comp_m.group(1).strip()}")
     date_m = re.search(r"Date of Report.*?\b([A-Z][a-z]+ \d{1,2}, \d{4})\b", t, flags=re.IGNORECASE)
