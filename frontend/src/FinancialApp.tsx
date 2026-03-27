@@ -6,10 +6,10 @@ import CompareModule from './CompareModule'
 import Dashboard from './Dashboard'
 import FlowChart from './FlowChart'
 import FloatingLines from './FloatingLines'
-import SoftAurora from './SoftAurora'
 import AnimatedList from './AnimatedList'
 import AiReportView from './AiReportView'
 import ChatAnalystView from './ChatAnalystView'
+import AiFinancialAgentView from './AiFinancialAgentView'
 import SovereignLanding from './SovereignLanding'
 import TerminalShell, { type TerminalNavId } from './TerminalShell'
 import { pushIntelDocUpload } from './intelDocsStorage'
@@ -91,14 +91,11 @@ function FeatureCard({
 
 export default function FinancialApp() {
   // The frontend talks to the FastAPI backend.
-  // In dev, use same-origin `/api` (Vite proxy → :8000) so fetch works for both
-  // localhost and 127.0.0.1. Override with VITE_BACKEND_BASE_URL when needed.
-  const backendBase = useMemo(() => {
-    const env = import.meta.env.VITE_BACKEND_BASE_URL
-    if (env && String(env).trim()) return String(env).replace(/\/$/, '')
-    if (import.meta.env.DEV) return ''
-    return 'http://127.0.0.1:8000'
-  }, [])
+  // Default backend port (8000) when no env var is provided.
+  const backendBase = useMemo(
+    () => import.meta.env.VITE_BACKEND_BASE_URL || 'http://127.0.0.1:8000',
+    [],
+  )
 
   const [token, setToken] = useState<string | null>(null)
   /** Pre-auth: marketing landing vs sign-in card */
@@ -107,15 +104,15 @@ export default function FinancialApp() {
   const [reports, setReports] = useState<Reports | null>(null)
 
   const [busy, setBusy] = useState(false)
+  const [analysisInProgress, setAnalysisInProgress] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Login form
   const [username, setUsername] = useState('tecttitans')
   const [password, setPassword] = useState('Tt2026')
-
-  // Signup form
-  const [signupUsername, setSignupUsername] = useState('')
-  const [signupPassword, setSignupPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+  const [signInNotice, setSignInNotice] = useState<string | null>(null)
 
   // Company list (SEC 10-K filers) for dropdown
   const [companyList, setCompanyList] = useState<Array<{ ticker: string; filer_name: string }>>([])
@@ -132,18 +129,17 @@ export default function FinancialApp() {
   const [useGeminiFallback, setUseGeminiFallback] = useState(true)
   const [featureStatus, setFeatureStatus] = useState<Record<FeatureId, FeatureStatus>>(FEATURE_STATUS_INITIAL)
 
-  // Q&A
-  const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState<string | null>(null)
   const [showBusinessWorkflow, setShowBusinessWorkflow] = useState(false)
 
   // Post-login view: Dashboard, Research, Compare
-  const [view, setView] = useState<'home' | 'research' | 'compare' | 'aiReport' | 'chat'>('home')
+  const [view, setView] = useState<'home' | 'research' | 'compare' | 'aiReport' | 'chat' | 'aiAgent'>('home')
   // When a company is selected on Dashboard, show company detail view (sentiment, charts, etc.)
   const [selectedCompanyDetail, setSelectedCompanyDetail] = useState<{
     ticker: string
     name: string
   } | null>(null)
+  // Search error handling
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const businessFlow = `
 flowchart TD
@@ -195,6 +191,18 @@ flowchart TD
     }
   }, [token, backendBase])
 
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem('tecttitans_remember_user')
+      if (u) {
+        setUsername(u)
+        setRememberMe(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   const filteredCompanies = useMemo(() => companyList.slice(0, 500), [companyList])
 
   const combinedFilerOptions = useMemo(() => {
@@ -240,6 +248,7 @@ flowchart TD
 
   async function apiLogin() {
     setError(null)
+    setSignInNotice(null)
     setBusy(true)
     try {
       const res = await fetch(`${backendBase}/api/login`, {
@@ -252,6 +261,12 @@ flowchart TD
       }
       const data = await res.json()
       setToken(data.token)
+      try {
+        if (rememberMe) localStorage.setItem('tecttitans_remember_user', username.trim())
+        else localStorage.removeItem('tecttitans_remember_user')
+      } catch {
+        /* ignore */
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -261,19 +276,32 @@ flowchart TD
 
   async function apiSignup() {
     setError(null)
+    if (username.trim().length < 3) {
+      setError('Username must be at least 3 characters.')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
     setBusy(true)
     try {
       const res = await fetch(`${backendBase}/api/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: signupUsername, password: signupPassword }),
+        body: JSON.stringify({ username, password }),
       })
       if (!res.ok) {
         throw new Error(await res.text())
       }
-      const data = await res.json()
-      setToken(data.token)
-      setSignupPassword('')
+      setAuthScreen('signin')
+      setConfirmPassword('')
+      setError('Signup successful. Please sign in.')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -288,7 +316,7 @@ flowchart TD
     setToken(null)
     setUploadId(null)
     setReports(null)
-    setAnswer(null)
+    setAnalysisInProgress(false)
     setAuthScreen('signin')
   }
 
@@ -296,7 +324,7 @@ flowchart TD
     setToken(null)
     setUploadId(null)
     setReports(null)
-    setAnswer(null)
+    setAnalysisInProgress(false)
     setAuthScreen('landing')
   }
 
@@ -331,9 +359,9 @@ flowchart TD
       return
     }
     setError(null)
+    setAnalysisInProgress(true)
     setBusy(true)
     setReports(null)
-    setAnswer(null)
     setUploadId(null)
 
     try {
@@ -484,20 +512,19 @@ flowchart TD
       })
     } finally {
       setBusy(false)
+      setAnalysisInProgress(false)
     }
   }
 
   async function handleSecSearchAndRun() {
     try {
-      if (!selectedCompany) {
-        setError('Please select a filer first.')
-        return
-      }
-      if (!selectedStarred?.sec_url) {
-        setError('No SEC EDGAR URL is configured for this filer yet.')
+      const typedCompanyName = filerSearchText.trim()
+      if (!selectedCompany && !typedCompanyName) {
+        setError('Please select a filer or type a company name first.')
         return
       }
       setError(null)
+      setAnalysisInProgress(true)
 
       const createPdfFromExtract = async (payload: {
         document_url: string
@@ -554,6 +581,36 @@ flowchart TD
         return new File([normalized], `${selectedCompany}_sec_extract.pdf`, {
           type: 'application/pdf',
         })
+      }
+
+      // If SEC URL is not configured (or company may be non-public), gather web context
+      // and convert it to a PDF so it can flow through the same AI pipeline.
+      if (!selectedStarred?.sec_url) {
+        const webRes = await fetch(
+          `${backendBase}/api/company/web-context?ticker=${encodeURIComponent(selectedCompany)}&company_name=${encodeURIComponent(typedCompanyName)}&limit=5`,
+        )
+        if (!webRes.ok) {
+          throw new Error('Could not gather company information from web sources.')
+        }
+        const webData: {
+          title?: string
+          query?: string
+          company_type?: string
+          key_points?: string[]
+          text: string
+          sources?: string[]
+        } = await webRes.json()
+        const sourceUrl = (webData.sources && webData.sources[0]) || 'https://news.google.com/'
+        const autoPdf = await createPdfFromExtract({
+          document_url: sourceUrl,
+          title:
+            webData.title ||
+            `${webData.query || selectedCompany || typedCompanyName} web research context (${webData.company_type || 'unknown'})`,
+          key_points: webData.key_points || [],
+          text: webData.text || '',
+        })
+        await apiUploadAndRun(autoPdf)
+        return
       }
 
       // Preferred path: extract SEC filing content and generate PDF, then upload.
@@ -629,44 +686,11 @@ flowchart TD
       await apiUploadAndRun(autoFile)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e))
+      setAnalysisInProgress(false)
     }
   }
 
-  async function apiQA() {
-    if (!token) return
-    if (!uploadId) {
-      setError('Upload a PDF first.')
-      return
-    }
-    if (!question.trim()) return
 
-    setError(null)
-    setBusy(true)
-    setAnswer(null)
-    try {
-      const res = await fetch(`${backendBase}/api/qa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          upload_id: uploadId,
-          question,
-          use_gemini_fallback: useGeminiFallback,
-          ...(selectedCompany ? { primary_ticker: selectedCompany } : {}),
-        }),
-      })
-      await assertOk(res)
-      const data = await res.json()
-      setAnswer(data.answer)
-    } catch (e: unknown) {
-      if (e instanceof Error && e.message === 'SESSION_EXPIRED') return
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   function escapeHtml(s: string) {
     return s
@@ -735,7 +759,7 @@ flowchart TD
       day: 'numeric',
     })
     return `
-      <div class="report-title">Financial Analysis Report</div>
+      <div class="report-title">Company Analysis Report</div>
       <div class="report-meta">Generated ${dateStr}${uploadId ? ` · Upload ID: ${escapeHtml(uploadId)}` : ''}</div>
       ${parts.join('')}
       <div class="disclaimer">For information purposes only; not investment advice.</div>
@@ -766,7 +790,7 @@ flowchart TD
       setError('Run at least one analysis step (Upload & Auto-Run) to generate the full report.')
       return
     }
-    openReportPrintWindow('Financial Analysis Report', html)
+    openReportPrintWindow('Company Analysis Report', html)
   }
 
   function handleDownloadFeature3AsPdf() {
@@ -780,9 +804,68 @@ flowchart TD
   const downloadReady =
     (reports?.f1 ?? reports?.f2 ?? reports?.f3 ?? reports?.f4 ?? reports?.f5 ?? reports?.f6) != null
 
+  async function validateAndSelectCompany(ticker: string, name: string) {
+    setSearchError(null)
+    try {
+      // Try to fetch quotes for this ticker from Yahoo Finance via our backend
+      const res = await fetch(`${backendBase}/api/benchmark?ticker=${encodeURIComponent(ticker)}&limit=1`)
+      if (!res.ok) {
+        throw new Error('Ticker not found')
+      }
+      const data: unknown = await res.json()
+      const arr = Array.isArray(data) ? data : []
+      // Check if the ticker was actually returned by Yahoo Finance
+      const found = arr.find((item: any) => item.ticker?.toUpperCase() === ticker.toUpperCase())
+      if (!found) {
+        setSearchError(`"${ticker}" is not listed on any public exchange. Please enter a valid stock ticker symbol.`)
+        return
+      }
+      // Valid company - navigate to it
+      setSelectedCompanyDetail({ ticker, name })
+      setSearchError(null)
+    } catch (e) {
+      setSearchError(`"${ticker}" is not listed on any public exchange. Please enter a valid stock ticker symbol.`)
+    }
+  }
+
+  function handleSearch(query: string) {
+    if (!query.trim()) return
+
+    // If on home view, search for a ticker
+    if (view === 'home' || view === 'aiReport' || view === 'aiAgent') {
+      const upperQuery = query.toUpperCase().trim()
+      // Check if it matches any company in the starred list
+      const found = STARRED_FILERS.find(
+        (c) => c.ticker === upperQuery || c.filer_name.toUpperCase().includes(upperQuery),
+      )
+      if (found) {
+        validateAndSelectCompany(found.ticker, found.filer_name)
+        return
+      }
+      // Otherwise treat as a ticker symbol - validate it
+      if (/^[A-Z]{1,5}(-[A-Z]{3})?$/.test(upperQuery)) {
+        validateAndSelectCompany(upperQuery, upperQuery)
+        return
+      }
+      // Invalid ticker format
+      setSearchError(`"${query}" is not a valid ticker symbol. Use format like AAPL, NVDA, or BTC-USD`)
+    }
+
+    // If on chat view, just log the search
+    if (view === 'chat') {
+      console.log('Chat search:', query)
+      return
+    }
+  }
+
   function handleTerminalNav(id: TerminalNavId) {
     if (id === 'dashboard') {
       setView('home')
+      setSelectedCompanyDetail(null)
+      return
+    }
+    if (id === 'aiAgent') {
+      setView('aiAgent')
       setSelectedCompanyDetail(null)
       return
     }
@@ -844,19 +927,22 @@ flowchart TD
                 ? 'aiReport'
                 : view === 'chat'
                   ? 'chat'
-                  : 'home'
+                  : view === 'aiAgent'
+                    ? 'aiAgent'
+                    : 'home'
           }
           searchPlaceholder={
             view === 'chat'
               ? 'Search financial datasets or previous chats…'
               : view === 'aiReport'
                 ? 'Search tickers, reports, or AI insights…'
-                : view === 'home' && !selectedCompanyDetail
+                : (view === 'home' || view === 'aiAgent') && !selectedCompanyDetail
                   ? 'Search ticker, reports, or market data…'
                   : undefined
           }
           onNavigate={handleTerminalNav}
           onSignOut={handleSignOut}
+          onSearch={handleSearch}
         >
           <div className="TerminalShell-page">
             {view === 'home' && !selectedCompanyDetail ? (
@@ -876,6 +962,13 @@ flowchart TD
               />
             ) : null}
             {view === 'compare' ? <CompareModule backendBase={backendBase} /> : null}
+            {view === 'aiAgent' ? (
+              <AiFinancialAgentView
+                onGoUpload={() => setView('research')}
+                onGoReports={() => setView('aiReport')}
+                onGoChat={() => setView('chat')}
+              />
+            ) : null}
             {view === 'aiReport' ? (
               <AiReportView
                 backendBase={backendBase}
@@ -1090,47 +1183,13 @@ flowchart TD
               />
             </div>
 
-            <div className="Card">
-              <div className="CardTitle">Custom Analyst Q&A</div>
-              <textarea
-                className="Textarea"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask a question (AI will include CITED PASSAGES)"
-              />
-              <button className="Btn BtnSecondary" disabled={busy || !uploadId} onClick={apiQA}>
-                {busy ? 'Thinking…' : 'Ask'}
-              </button>
-            </div>
+
           </aside>
 
           <main className="Main">
-            {(busy || uploadId) && (
-              <SoftAurora
-                speed={0.6}
-                scale={1.5}
-                brightness={1}
-                color1="#f7f7f7"
-                color2="#e100ff"
-                noiseFrequency={2.5}
-                noiseAmplitude={1}
-                bandHeight={0.5}
-                bandSpread={1}
-                octaveDecay={0.1}
-                layerOffset={0}
-                colorSpeed={1}
-                enableMouseInteraction
-                mouseInfluence={0.25}
-              />
-            )}
             {error ? <div className="Alert AlertDanger">{error}</div> : null}
 
-            {answer ? (
-              <div className="ResultBlock">
-                <div className="ResultTitle">Q&A Answer</div>
-                <pre className="Pre">{answer}</pre>
-              </div>
-            ) : null}
+
 
             <div className="FlowToggleRow">
               <button
@@ -1196,82 +1255,145 @@ flowchart TD
       ) : null}
 
       {!token && authScreen === 'signin' ? (
-        <div className="AuthWrap AuthWrap--sa">
-          <FloatingLines
-            linesGradient={['#102859', '#cbf6ed', '#f2faf6', '#d8f8f0']}
-            enabledWaves={['top', 'middle', 'bottom']}
-            lineCount={[6, 6, 6]}
-            lineDistance={[5, 5, 5]}
-            animationSpeed={1}
-            interactive={true}
-            parallax={true}
-            parallaxStrength={0.2}
-            mixBlendMode="screen"
-            bendRadius={5.0}
-            bendStrength={-0.5}
-          />
+        <div className="AuthWrap AuthWrap--glass">
+          <div className="GlassSignIn-bg" aria-hidden />
+          <button
+            type="button"
+            className="GlassSignIn-back"
+            onClick={() => {
+              setError(null)
+              setSignInNotice(null)
+              setAuthScreen('landing')
+            }}
+          >
+            ← Back to home
+          </button>
 
-          <section className="LandingIntro" aria-label="Intro">
-            <div className="LandingHeading">
-              Financial Research — <span className="accent">Tech Titans</span>
+          <div className="GlassSignIn-card">
+            <div className="GlassSignIn-sheen" aria-hidden />
+            <div className="GlassSignIn-avatar" aria-hidden>
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" aria-hidden>
+                <path
+                  d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a5 5 0 0110 0v1"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
-            <div className="LandingSub">
-              Upload annual reports and instantly generate KPI trends, risk flags, earnings intelligence, and
-              modeling guidance.
-            </div>
-          </section>
 
-          <div className="AuthCard">
-            <button
-              type="button"
-              className="Btn BtnGhost"
-              style={{ marginBottom: 12, width: '100%' }}
-              onClick={() => {
-                setError(null)
-                setAuthScreen('landing')
+            <form
+              className="GlassSignIn-form"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void apiLogin()
               }}
             >
-              ← Back to home
-            </button>
-            <div className="AuthTitle">Sign In</div>
-            <div className="AuthSub">Local access gate</div>
+              <div className="GlassSignIn-field">
+                <span className="GlassSignIn-fieldIcon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                    <path
+                      d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a5 5 0 0110 0v1"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <input
+                  className="GlassSignIn-input"
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  placeholder="Email ID"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value)
+                    setSignInNotice(null)
+                  }}
+                />
+              </div>
+              <div className="GlassSignIn-field">
+                <span className="GlassSignIn-fieldIcon" aria-hidden>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+                    <rect
+                      x="5"
+                      y="11"
+                      width="14"
+                      height="10"
+                      rx="2"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                    />
+                    <path
+                      d="M8 11V7a4 4 0 018 0v4"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                <input
+                  className="GlassSignIn-input"
+                  type="password"
+                  name="password"
+                  autoComplete="current-password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setSignInNotice(null)
+                  }}
+                />
+              </div>
 
-            <label className="Label">
-              Username
-              <input className="Input" value={username} onChange={(e) => setUsername(e.target.value)} />
-            </label>
-            <label className="Label">
-              Password
-              <input
-                className="Input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
+              <div className="GlassSignIn-options">
+                <label className="GlassSignIn-remember">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  Remember me
+                </label>
+                <button
+                  type="button"
+                  className="GlassSignIn-forgot"
+                  onClick={() =>
+                    setSignInNotice(
+                      'Password reset is not available in this local demo. Use the default account or create a new one.',
+                    )
+                  }
+                >
+                  Forgot Password?
+                </button>
+              </div>
 
-            {error ? <div className="Alert AlertDanger">{error}</div> : null}
+              {signInNotice ? <p className="GlassSignIn-notice">{signInNotice}</p> : null}
+              {error ? <div className="GlassSignIn-alert">{error}</div> : null}
 
-            <button className="Btn" disabled={busy} onClick={apiLogin}>
-              {busy ? 'Signing in…' : 'Sign In'}
-            </button>
+              <button type="submit" className="GlassSignIn-login" disabled={busy}>
+                {busy ? 'Signing in…' : 'LOGIN'}
+              </button>
+            </form>
+
             <button
               type="button"
-              className="Btn BtnSecondary"
-              disabled={busy}
-              style={{ width: '100%', marginTop: 10 }}
+              className="GlassSignIn-secondary"
               onClick={() => {
                 setError(null)
-                setSignupUsername('')
-                setSignupPassword('')
+                setSignInNotice(null)
+                setConfirmPassword('')
                 setAuthScreen('signup')
               }}
             >
-              Create account
+              Create new account
             </button>
-            <div className="Hint">
-              Defaults: <b>tecttitans</b> / <b>Tt2026</b>
-            </div>
+            <p className="GlassSignIn-hint">
+              Demo login: <strong>tecttitans</strong> / <strong>Tt2026</strong>
+            </p>
           </div>
         </div>
       ) : null}
@@ -1292,11 +1414,11 @@ flowchart TD
             bendStrength={-0.5}
           />
 
-          <section className="LandingIntro" aria-label="Sign up intro">
+          <section className="LandingIntro" aria-label="Intro">
             <div className="LandingHeading">
-              Financial Research — <span className="accent">Sign up</span>
+              Financial Research — <span className="accent">Tech Titans</span>
             </div>
-            <div className="LandingSub">Create a local account (prototype mode)</div>
+            <div className="LandingSub">Create an account to access Research, AI reports, and analyst chat.</div>
           </section>
 
           <div className="AuthCard">
@@ -1306,49 +1428,170 @@ flowchart TD
               style={{ marginBottom: 12, width: '100%' }}
               onClick={() => {
                 setError(null)
-                setSignupUsername('')
-                setSignupPassword('')
                 setAuthScreen('signin')
               }}
             >
               ← Back to sign in
             </button>
             <div className="AuthTitle">Sign Up</div>
-            <div className="AuthSub">Create a new local user</div>
+            <div className="AuthSub">Create local account</div>
 
             <label className="Label">
               Username
-              <input
-                className="Input"
-                value={signupUsername}
-                onChange={(e) => setSignupUsername(e.target.value)}
-                placeholder="e.g. alice"
-              />
+              <input className="Input" value={username} onChange={(e) => setUsername(e.target.value)} />
             </label>
-
             <label className="Label">
               Password
               <input
                 className="Input"
                 type="password"
-                value={signupPassword}
-                onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="min 4 chars"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+            <label className="Label">
+              Confirm password
+              <input
+                className="Input"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </label>
 
             {error ? <div className="Alert AlertDanger">{error}</div> : null}
 
-            <button className="Btn BtnSecondary" disabled={busy} onClick={apiSignup}>
-              {busy ? 'Creating…' : 'Create account'}
+            <button className="Btn" disabled={busy} onClick={apiSignup}>
+              {busy ? 'Creating account…' : 'Create account'}
             </button>
+          </div>
+        </div>
+      ) : null}
 
-            <div className="Hint">
-              Accounts are stored in-memory on the backend; restart clears them.
+      {analysisInProgress && token ? (
+        <div className="AnalysisOverlay" role="dialog" aria-modal="true" aria-label="Analysis progress">
+          <div className="AnalysisOverlayCard">
+            <div className="AnalysisWaveWrap" aria-hidden>
+              <svg
+                className="AnalysisWaveSvg"
+                viewBox="0 0 400 100"
+                preserveAspectRatio="xMidYMid meet"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <defs>
+                  <linearGradient id="analysisWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.95" />
+                    <stop offset="55%" stopColor="#38bdf8" stopOpacity="0.85" />
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0.9" />
+                  </linearGradient>
+                  <filter id="analysisWaveGlow" x="-20%" y="-50%" width="140%" height="200%">
+                    <feGaussianBlur stdDeviation="2.2" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <g className="AnalysisWaveGroup AnalysisWaveGroup--back" filter="url(#analysisWaveGlow)">
+                  <path
+                    className="AnalysisWavePath AnalysisWavePath--1"
+                    d="M0,52 C40,28 80,72 120,52 S200,32 240,52 S320,72 360,52 S400,38 400,52"
+                    fill="none"
+                    stroke="url(#analysisWaveGrad)"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    opacity="0.35"
+                  />
+                  <path
+                    className="AnalysisWavePath AnalysisWavePath--2"
+                    d="M0,50 C50,22 100,78 150,50 S250,22 300,50 S380,78 400,50"
+                    fill="none"
+                    stroke="url(#analysisWaveGrad)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    opacity="0.55"
+                  />
+                </g>
+                <g className="AnalysisWaveGroup AnalysisWaveGroup--front" filter="url(#analysisWaveGlow)">
+                  <path
+                    className="AnalysisWavePath AnalysisWavePath--3"
+                    d="M0,48 C60,20 120,76 180,48 S300,20 360,48 S400,62 400,48"
+                    fill="none"
+                    stroke="url(#analysisWaveGrad)"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    opacity="0.9"
+                  />
+                  <path
+                    className="AnalysisWavePath AnalysisWavePath--4"
+                    d="M0,52 Q100,30 200,52 T400,52"
+                    fill="none"
+                    stroke="url(#analysisWaveGrad)"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    opacity="0.65"
+                  />
+                </g>
+                <g className="AnalysisWaveParticles">
+                  <circle className="AnalysisParticle AnalysisParticle--a" cx="120" cy="42" r="2" fill="#67e8f9" />
+                  <circle className="AnalysisParticle AnalysisParticle--b" cx="200" cy="58" r="1.5" fill="#7dd3fc" />
+                  <circle className="AnalysisParticle AnalysisParticle--c" cx="280" cy="38" r="2.2" fill="#38bdf8" />
+                  <circle className="AnalysisParticle AnalysisParticle--d" cx="320" cy="52" r="1.2" fill="#60a5fa" />
+                </g>
+              </svg>
+            </div>
+            <div className="AnalysisOverlayTitle">Analysis in progress...</div>
+            <div className="AnalysisOverlaySub">AI is processing the uploaded document in stages.</div>
+            <div className="AnalysisStageList">
+              {FEATURE_LABELS.map((f) => (
+                <div key={f.id} className={`AnalysisStageRow AnalysisStage-${featureStatus[f.id]}`}>
+                  <span className="AnalysisStageDot" />
+                  <span className="AnalysisStageLabel">{f.label}</span>
+                  <span className="AnalysisStageStatus">{featureStatus[f.id]}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       ) : null}
+
+      {searchError && (
+        <div className="SearchErrorOverlay" onClick={() => setSearchError(null)}>
+          <div className="SearchErrorModal" onClick={(e) => e.stopPropagation()}>
+            <div className="SearchErrorHeader">
+              <h2 className="SearchErrorTitle">⚠️ Company Not Listed</h2>
+              <button
+                type="button"
+                className="SearchErrorClose"
+                onClick={() => setSearchError(null)}
+                aria-label="Close error"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="SearchErrorContent">
+              <p className="SearchErrorMessage">{searchError}</p>
+              <p className="SearchErrorHint">Try searching for a company like:</p>
+              <ul className="SearchErrorExamples">
+                <li>AAPL (Apple)</li>
+                <li>NVDA (NVIDIA)</li>
+                <li>MSFT (Microsoft)</li>
+                <li>AMZN (Amazon)</li>
+                <li>GOOGL (Alphabet/Google)</li>
+              </ul>
+            </div>
+            <div className="SearchErrorFooter">
+              <button
+                type="button"
+                className="SearchErrorBtn"
+                onClick={() => setSearchError(null)}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

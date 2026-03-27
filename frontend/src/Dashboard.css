@@ -22,6 +22,12 @@
   flex-wrap: wrap;
 }
 
+.DashboardKickerGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .Dashboard-kicker {
   font-size: 11px;
   font-weight: 700;
@@ -29,6 +35,47 @@
   text-transform: uppercase;
   color: #059669;
   margin: 0;
+}
+
+.DashboardLiveIndicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #dc2626;
+  text-transform: uppercase;
+}
+
+.DashboardLiveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.DashboardRefreshGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.DashboardLastUpdate {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
 }
 
 .DashboardRefreshBtn {
@@ -338,10 +385,20 @@
   background: linear-gradient(180deg, #a7f3d0, #6ee7b7);
   min-height: 8px;
   transition: height 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .DashboardRevBar--hi {
   background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.DashboardBarPct {
+  font-size: 9px;
+  font-weight: 700;
+  color: #047857;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .DashboardBarLbl {
@@ -568,4 +625,204 @@
     bottom: 100px;
     right: 16px;
   }
+}
+
+/* Stock Details Modal */
+.DashboardModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.DashboardModal {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.15);
+  max-width: 640px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.DashboardModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+}
+
+.DashboardModalTitle {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.5px;
+}
+
+.DashboardModalSubtitle {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.DashboardModalClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(16, 185, 129, 0.1);
+  color: #0d9488;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.DashboardModalClose:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.DashboardModalContent {
+  padding: 24px;
+}
+
+.DashboardModalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .DashboardModalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .DashboardModal {
+    width: 95%;
+  }
+}
+
+.DashboardModalCard {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.DashboardModalLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.DashboardModalValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.DashboardModalChange {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.DashboardModalChange.positive {
+  color: #059669;
+}
+
+.DashboardModalChange.negative {
+  color: #dc2626;
+}
+
+.DashboardModalSubValue {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+  padding: 4px 0;
+}
+
+.DashboardModalFooter {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+.DashboardModalCancelBtn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: #f8fafc;
+  color: #047857;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.DashboardModalCancelBtn:hover {
+  background: #f1f5f9;
+}
+
+.DashboardModalActionBtn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.DashboardModalActionBtn:hover {
+  filter: brightness(1.05);
 }

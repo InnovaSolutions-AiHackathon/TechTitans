@@ -7,6 +7,7 @@ export type ChatMessage = {
   role: 'user' | 'assistant'
   text: string
   elapsedMs?: number
+  pending?: boolean
 }
 
 type Props = {
@@ -64,21 +65,34 @@ export default function ChatAnalystView({
       }
       setError(null)
       setBusy(true)
+      const pendingId = `a-pending-${Date.now()}`
       const userMsg: ChatMessage = {
         id: `u-${Date.now()}`,
         role: 'user',
         text: q,
       }
-      setMessages((prev) => [...prev, userMsg])
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        {
+          id: pendingId,
+          role: 'assistant',
+          text: 'Thinking...',
+          pending: true,
+        },
+      ])
       setInput('')
       const t0 = performance.now()
       try {
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 45000)
         const res = await fetch(`${backendBase.replace(/\/$/, '')}/api/qa`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          signal: controller.signal,
           body: JSON.stringify({
             upload_id: uploadId,
             question: q,
@@ -86,6 +100,7 @@ export default function ChatAnalystView({
             ...(primaryTicker.trim() ? { primary_ticker: primaryTicker.trim() } : {}),
           }),
         })
+        window.clearTimeout(timeoutId)
         if (!res.ok) {
           const errText = await res.text()
           throw new Error(errText || res.statusText)
@@ -93,26 +108,37 @@ export default function ChatAnalystView({
         const data = (await res.json()) as { answer?: string | null }
         const ans = (data.answer ?? '').trim() || 'No answer returned.'
         const elapsedMs = Math.round(performance.now() - t0)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            text: ans,
-            elapsedMs,
-          },
-        ])
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === pendingId
+              ? {
+                  ...m,
+                  text: ans,
+                  pending: false,
+                  elapsedMs,
+                }
+              : m,
+          ),
+        )
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
+        const msg =
+          e instanceof Error && e.name === 'AbortError'
+            ? 'Request timed out. Please try a shorter question.'
+            : e instanceof Error
+              ? e.message
+              : String(e)
         setError(msg)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            text: `**Error:** ${msg}`.replace(/\*\*/g, ''),
-          },
-        ])
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === pendingId
+              ? {
+                  ...m,
+                  text: `Error: ${msg}`,
+                  pending: false,
+                }
+              : m,
+          ),
+        )
       } finally {
         setBusy(false)
       }
@@ -166,6 +192,7 @@ export default function ChatAnalystView({
               className={`ChatAnalyst-msg ChatAnalyst-msg--${m.role}`}
             >
               <div className="ChatAnalyst-md">{m.text}</div>
+              {m.pending ? <div className="ChatAnalyst-typing">Analyzing...</div> : null}
               {m.role === 'assistant' && m.elapsedMs != null ? (
                 <div className="ChatAnalyst-msgFoot">
                   <span>Analysis: {(m.elapsedMs / 1000).toFixed(1)}s</span>
@@ -174,11 +201,6 @@ export default function ChatAnalystView({
               ) : null}
             </div>
           ))}
-          {busy ? (
-            <div className="ChatAnalyst-msg ChatAnalyst-msg--assistant">
-              <div className="ChatAnalyst-md">Thinking…</div>
-            </div>
-          ) : null}
           <div ref={bottomRef} />
         </div>
 

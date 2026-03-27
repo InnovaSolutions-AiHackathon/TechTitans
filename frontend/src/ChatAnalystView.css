@@ -100,6 +100,13 @@
   flex-wrap: wrap;
 }
 
+.ChatAnalyst-typing {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #0f766e;
+  opacity: 0.9;
+}
+
 .ChatAnalyst-empty {
   padding: 28px 16px;
   text-align: center;

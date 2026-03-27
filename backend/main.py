@@ -61,8 +61,6 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -88,6 +86,11 @@ class LoginOut(BaseModel):
 class SignupIn(BaseModel):
     username: str
     password: str
+
+
+class SignupOut(BaseModel):
+    ok: bool
+    message: str
 
 
 def _require_token(credentials: HTTPAuthorizationCredentials = Depends(bearer)) -> str:
@@ -316,22 +319,18 @@ def login(payload: LoginIn) -> LoginOut:
     return LoginOut(token=token)
 
 
-@app.post("/api/signup", response_model=LoginOut)
-def signup(payload: SignupIn) -> LoginOut:
+@app.post("/api/signup", response_model=SignupOut)
+def signup(payload: SignupIn) -> SignupOut:
     username = (payload.username or "").strip()
-    password = payload.password or ""
-
+    password = (payload.password or "").strip()
     if len(username) < 3:
-        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if len(password) < 4:
-        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
-
-    token = auth_service.signup(username, password)
-    if not token:
-        raise HTTPException(status_code=409, detail="Username already exists")
-
-    # Signup returns a token so the UI can immediately proceed.
-    return LoginOut(token=token)
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters.")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    ok = auth_service.signup(username, password)
+    if not ok:
+        raise HTTPException(status_code=409, detail="Username already exists or input is invalid.")
+    return SignupOut(ok=True, message="Signup successful. Please sign in.")
 
 
 @app.post("/api/upload-and-run", response_model=UploadRunOut)
@@ -449,6 +448,38 @@ def _uses_copilot_mode(payload: QIn) -> bool:
     )
 
 
+def _is_investment_decision_question(question: str) -> bool:
+    q = (question or "").strip().lower()
+    if not q:
+        return False
+    decision_markers = (
+        "should i buy",
+        "should i sell",
+        "buy or sell",
+        "final decision",
+        "final recommendation",
+        "should i invest",
+        "is it a good investment",
+        "can i invest",
+        "should we invest",
+        "entry point",
+        "exit now",
+        "target price",
+        "recommend me",
+    )
+    return any(m in q for m in decision_markers)
+
+
+def _append_investment_risk_notice(answer: str) -> str:
+    notice = "Investment decision is at your own risk."
+    txt = (answer or "").strip()
+    if not txt:
+        return notice
+    if notice.lower() in txt.lower():
+        return txt
+    return f"{txt}\n\n{notice}"
+
+
 @app.post("/api/qa", response_model=QOut)
 def qa(payload: QIn, token: str = Depends(_require_token)) -> QOut:
     bucket = pdf_store.get(token) or {}
@@ -481,6 +512,9 @@ def qa(payload: QIn, token: str = Depends(_require_token)) -> QOut:
     out = ollama_chat_safe(OLLAMA_HOST, OLLAMA_MODEL, prompt)
     if out is None and payload.use_gemini_fallback:
         out = claude_chat_safe(CLAUDE_API_KEY, CLAUDE_MODEL, prompt)
+
+    if out and _is_investment_decision_question(payload.question):
+        out = _append_investment_risk_notice(out)
 
     if out and DISCLAIMER_SUFFIX not in out:
         out = f"{out.strip()}\n\n{DISCLAIMER_SUFFIX}"
@@ -696,9 +730,7 @@ def _extract_sec_key_points(text: str) -> List[str]:
     form_m = re.search(r"\bFORM\s+([0-9A-Z\-]+)\b", t, flags=re.IGNORECASE)
     if form_m:
         points.append(f"Filing type: Form {form_m.group(1).upper()}")
-    # `Inc.` ends with '.' (a non-word char), so a trailing `\b` boundary won't match reliably.
-    # Use only a leading word boundary and let the match end at the period.
-    comp_m = re.search(r"\b([A-Z][A-Za-z0-9&\.,\- ]{2,80}Inc\.)", t)
+    comp_m = re.search(r"\b([A-Z][A-Za-z0-9&\.,\- ]{2,80}Inc\.)\b", t)
     if comp_m:
         points.append(f"Company: {comp_m.group(1).strip()}")
     date_m = re.search(r"Date of Report.*?\b([A-Z][a-z]+ \d{1,2}, \d{4})\b", t, flags=re.IGNORECASE)
@@ -870,6 +902,127 @@ def get_news(ticker: str, limit: int = 12) -> List[Dict[str, str]]:
         return items
     # Final fallback so the dashboard / company detail never looks empty.
     return _fallback_demo_news(ticker, limit=limit)
+
+
+def _fetch_wikipedia_summary(query: str) -> Dict[str, str]:
+    """
+    Lightweight web context from Wikipedia summary API.
+    Returns empty data when page is not found.
+    """
+    q = (query or "").strip()
+    if not q:
+        return {}
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{quote(q)}"
+    req = Request(
+        url,
+        headers={"User-Agent": "FinancialResearchAssistant/1.0 (web-context; contact@example.com)"},
+    )
+    with urlopen(req, timeout=12) as resp:
+        if resp.status != 200:
+            return {}
+        data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+    if data.get("type") == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found":
+        return {}
+    return {
+        "title": str(data.get("title") or "").strip(),
+        "extract": str(data.get("extract") or "").strip(),
+        "url": str((data.get("content_urls") or {}).get("desktop", {}).get("page") or "").strip(),
+    }
+
+
+@app.get("/api/company/web-context", response_model=Dict[str, Any])
+def company_web_context(ticker: str = "", company_name: str = "", limit: int = 5) -> Dict[str, Any]:
+    """
+    Fallback search context when SEC URL is unavailable.
+    - Public company: include SEC filing summary + web headlines.
+    - Non-public/unresolved: include web profile + headlines.
+    """
+    t = _clean_symbol(ticker)
+    name = (company_name or "").strip()
+    if not t and not name:
+        raise HTTPException(status_code=400, detail="ticker or company_name is required")
+
+    try:
+        limit = max(1, min(int(limit), 10))
+    except Exception:
+        limit = 5
+
+    query = name or t
+    key_points: List[str] = []
+    sections: List[str] = []
+    sources: List[str] = []
+
+    # 1) Company profile from web
+    try:
+        wiki = _fetch_wikipedia_summary(query)
+        if not wiki and t and name and name.upper() != t:
+            wiki = _fetch_wikipedia_summary(t)
+        if wiki.get("extract"):
+            sections.append(f"[Company Background]\n{wiki['extract']}")
+            key_points.append(f"Loaded public web profile for {wiki.get('title') or query}")
+            if wiki.get("url"):
+                sources.append(wiki["url"])
+    except Exception:
+        pass
+
+    # 2) Recent headlines from web
+    try:
+        news = _fetch_google_news_rss(t or query, limit=limit)
+        if news:
+            lines: List[str] = []
+            for n in news[:limit]:
+                title = str(n.get("title") or "").strip()
+                src = str(n.get("source") or "News").strip()
+                date = str(n.get("published_at") or "").strip()
+                if title:
+                    lines.append(f"- {title} ({src}, {date})")
+                link = str(n.get("url") or "").strip()
+                if link:
+                    sources.append(link)
+            if lines:
+                sections.append("[Recent Web News]\n" + "\n".join(lines))
+                key_points.append(f"Collected {len(lines)} recent web headlines")
+    except Exception:
+        pass
+
+    # 3) SEC filings only when ticker seems public-listed
+    company_type = "non-public-or-unresolved"
+    if t:
+        try:
+            filings = _fetch_recent_filings_for_ticker(t, limit=3)
+        except Exception:
+            filings = []
+        if filings:
+            company_type = "public-listed"
+            filing_lines: List[str] = []
+            for f in filings:
+                form = str(f.get("form") or "Filing")
+                filing_date = str(f.get("filing_date") or "")
+                doc = str(f.get("primary_document") or "")
+                filing_lines.append(f"- {form} ({filing_date}) {doc}".strip())
+                link = str(f.get("url") or "").strip()
+                if link:
+                    sources.append(link)
+            sections.append("[Recent SEC Filings]\n" + "\n".join(filing_lines))
+            key_points.append(f"{t} appears publicly listed (SEC filings found)")
+        else:
+            key_points.append("No SEC filings found for ticker; using web-only context")
+    else:
+        key_points.append("No ticker provided; using company-name web context")
+
+    if not sections:
+        raise HTTPException(status_code=404, detail="Could not gather web context for this company.")
+
+    text = "\n\n".join(sections)[:12000]
+    dedup_sources = [s for s in dict.fromkeys(sources) if s]
+    return {
+        "title": f"{query} web research context",
+        "query": query,
+        "company_type": company_type,
+        "key_points": key_points[:6],
+        "text": text,
+        "sources": dedup_sources[:10],
+    }
 
 
 @app.get("/api/filings/recent", response_model=List[Dict[str, str]])

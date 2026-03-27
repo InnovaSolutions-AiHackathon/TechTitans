@@ -8,6 +8,13 @@ type BenchRow = {
   price: number | null
   change_pct?: number | null
   currency?: string
+  market_cap?: number | null
+  pe_ratio?: number | null
+  volume?: number | null
+  avg_volume_3m?: number | null
+  fifty_two_week_low?: number | null
+  fifty_two_week_high?: number | null
+  exchange?: string | null
 }
 
 type Timeframe = '1D' | '1W' | '1M' | '1Y'
@@ -86,6 +93,25 @@ function sparkTrend(row: BenchRow): 'up' | 'down' | 'upBlue' {
   return 'up'
 }
 
+function formatLargeNumber(num: number | null | undefined): string {
+  if (num == null || Number.isNaN(Number(num))) return '—'
+  const n = Number(num)
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}K`
+  return `$${n.toFixed(2)}`
+}
+
+function formatVolume(num: number | null | undefined): string {
+  if (num == null || Number.isNaN(Number(num))) return '—'
+  const n = Number(num)
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K`
+  return n.toFixed(0)
+}
+
 function last6MonthLabels(): string[] {
   const out: string[] = []
   const d = new Date()
@@ -96,10 +122,73 @@ function last6MonthLabels(): string[] {
   return out
 }
 
-function barHeights(tf: Timeframe, seed: number): number[] {
-  const f = tf === '1D' ? 0.55 : tf === '1W' ? 0.72 : tf === '1M' ? 0.88 : 1.05
-  const base = 22 + (Math.abs(seed) % 15)
-  return [0, 1, 2, 3, 4, 5].map((i) => Math.min(96, base + i * 10 * f + (i * (seed % 5))))
+function labelsForTimeframe(tf: Timeframe): string[] {
+  const now = new Date()
+  if (tf === '1D') {
+    // Intraday slices.
+    return ['09:30', '10:30', '11:30', '13:00', '14:30', '15:30']
+  }
+  if (tf === '1W') {
+    const out: string[] = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(now.getDate() - i)
+      out.push(d.toLocaleDateString('en-US', { weekday: 'short' }))
+    }
+    return out
+  }
+  if (tf === '1M') {
+    // Current month: show weeks
+    const out: string[] = []
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+    const weeksInMonth = Math.ceil(daysInMonth / 7)
+    for (let w = 1; w <= Math.min(weeksInMonth, 4); w++) {
+      out.push(`W${w}`)
+    }
+    return out.length === 0 ? ['W1'] : out
+  }
+  if (tf === '1Y') {
+    const out: string[] = []
+    // 12-month view ending in current month.
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      out.push(d.toLocaleString('en-US', { month: 'short' }))
+    }
+    return out
+  }
+  return last6MonthLabels()
+}
+
+function seriesForTimeframe(tf: Timeframe, seed: number, momentumPct: number): number[] {
+  const drift = momentumPct / 100
+  if (tf === '1D') {
+    const base = 8 + (Math.abs(seed) % 4)
+    return [0, 1, 2, 3, 4, 5].map((i) => base + i * 0.7 + drift * i * 0.8)
+  }
+  if (tf === '1W') {
+    const base = 16 + (Math.abs(seed) % 5)
+    return [0, 1, 2, 3, 4, 5].map((i) => base + i * 1.4 + drift * i * 1.2)
+  }
+  if (tf === '1M') {
+    // Current month: 4 weeks
+    const base = 28 + (Math.abs(seed) % 7)
+    return [0, 1, 2, 3].map((i) => base + i * 2.8 + drift * i * 2.5)
+  }
+  // 1Y: full 12-month trajectory with gentle acceleration + seasonality.
+  const base = 42 + (Math.abs(seed) % 6)
+  return Array.from({ length: 12 }, (_, i) => {
+    const trend = i * 3.8
+    const seasonal = Math.sin(i / 2.2) * 2.4
+    return base + trend + seasonal + drift * i * 2.5
+  })
+}
+
+function toHeights(values: number[]): number[] {
+  if (!values.length) return []
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = Math.max(1, max - min)
+  return values.map((v) => 28 + ((v - min) / span) * 64)
 }
 
 function formatRelative(iso: string): string {
@@ -128,6 +217,23 @@ function filingSentiment(form: string): 'bullish' | 'neutral' | 'bearish' {
   if (f.includes('10-Q')) return 'neutral'
   if (f.includes('8-K')) return 'neutral'
   return 'bearish'
+}
+
+function formatLastUpdate(date: Date | null): string {
+  if (!date) return 'never'
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSecs = Math.floor(diffMs / 1000)
+  const diffMins = Math.floor(diffSecs / 60)
+
+  if (diffSecs < 60) return `${diffSecs}s ago`
+  if (diffMins < 60) return `${diffMins}m ago`
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }).format(date)
 }
 
 function riskScoreFromRows(rows: BenchRow[]): number {
@@ -210,6 +316,9 @@ export default function Dashboard({
   const [docs, setDocs] = useState<DocRow[]>([])
   const [docsLoading, setDocsLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedStockDetails, setSelectedStockDetails] = useState<BenchRow | null>(null)
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
+  const autoRefreshInterval = 30000 // 30 seconds
 
   const baseUrl = useMemo(() => backendBase.replace(/\/$/, ''), [backendBase])
 
@@ -313,7 +422,20 @@ export default function Dashboard({
     loadBenchmark()
     loadNews()
     loadFilingsAndDocs()
+    setLastUpdateTime(new Date())
   }, [loadBenchmark, loadNews, loadFilingsAndDocs, refreshKey])
+
+  // Auto-refresh stock prices every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!benchLoading) {
+        loadBenchmark()
+        setLastUpdateTime(new Date())
+      }
+    }, autoRefreshInterval)
+
+    return () => clearInterval(interval)
+  }, [loadBenchmark, benchLoading])
 
   const nvdaRow = useMemo(
     () => tickers.find((t) => t.ticker.toUpperCase().includes('NVDA')),
@@ -327,27 +449,39 @@ export default function Dashboard({
 
   const risk = useMemo(() => riskScoreFromRows(tickers), [tickers])
 
-  const monthLabels = useMemo(() => last6MonthLabels(), [])
+  const chartLabels = useMemo(() => labelsForTimeframe(tf), [tf])
   const chartBars = useMemo(() => {
     const seed = Math.round(((nvdaRow?.price ?? 450) % 1000) + nvdaPct * 3)
-    const heights = barHeights(tf, seed)
-    return monthLabels.map((m, i) => ({
-      m,
+    const values = seriesForTimeframe(tf, seed, nvdaPct)
+    const heights = toHeights(values)
+    const maxValue = Math.max(...values, 1)
+    return chartLabels.map((label, i) => ({
+      label,
+      value: values[i] ?? 0,
       h: heights[i] ?? 50,
       highlight: i === heights.length - 1,
+      percentage: ((values[i] ?? 0) / maxValue) * 100,
     }))
-  }, [tf, nvdaRow, monthLabels, nvdaPct])
+  }, [tf, nvdaRow, chartLabels, nvdaPct])
 
   const latestM = useMemo(() => {
-    const v = 42.5 * (1 + nvdaPct / 400)
-    return v.toFixed(1)
-  }, [nvdaPct])
+    const last = chartBars[chartBars.length - 1]
+    return (last?.value ?? 0).toFixed(1)
+  }, [chartBars])
 
   const handleTickerClick = (row: BenchRow) => {
-    const name =
-      row.name && String(row.name).trim() ? String(row.name).trim() : displaySymbol(row.ticker)
-    /** Same pattern as NVDA: pass Yahoo symbol (e.g. BTC-USD) so Company Detail APIs resolve. */
-    onSelectCompany?.(row.ticker, name)
+    setSelectedStockDetails(row)
+  }
+
+  const handleGoToAnalysis = () => {
+    if (selectedStockDetails) {
+      const name =
+        selectedStockDetails.name && String(selectedStockDetails.name).trim()
+          ? String(selectedStockDetails.name).trim()
+          : displaySymbol(selectedStockDetails.ticker)
+      onSelectCompany?.(selectedStockDetails.ticker, name)
+      setSelectedStockDetails(null)
+    }
   }
 
   const handleViewSources = () => {
@@ -362,15 +496,24 @@ export default function Dashboard({
   return (
     <div className="Dashboard">
       <div className="DashboardTopBar">
-        <p className="Dashboard-kicker">Market pulse</p>
-        <button
-          type="button"
-          className="DashboardRefreshBtn"
-          disabled={benchLoading}
-          onClick={() => setRefreshKey((k) => k + 1)}
-        >
-          {benchLoading ? 'Refreshing…' : 'Refresh data'}
-        </button>
+        <div className="DashboardKickerGroup">
+          <p className="Dashboard-kicker">Market pulse</p>
+          <div className="DashboardLiveIndicator" title="Live prices from Yahoo Finance">
+            <span className="DashboardLiveDot" />
+            <span className="DashboardLiveText">LIVE</span>
+          </div>
+        </div>
+        <div className="DashboardRefreshGroup">
+          <span className="DashboardLastUpdate">Updated {formatLastUpdate(lastUpdateTime)}</span>
+          <button
+            type="button"
+            className="DashboardRefreshBtn"
+            disabled={benchLoading}
+            onClick={() => setRefreshKey((k) => k + 1)}
+          >
+            {benchLoading ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        </div>
       </div>
 
       {benchError ? <div className="DashboardBanner">{benchError}</div> : null}
@@ -445,17 +588,20 @@ export default function Dashboard({
           </div>
           <div className="DashboardBars" aria-hidden>
             {chartBars.map((row) => (
-              <div key={row.m} className="DashboardBarCol">
+              <div key={row.label} className="DashboardBarCol">
                 <div
                   className={`DashboardRevBar ${row.highlight ? 'DashboardRevBar--hi' : ''}`}
                   style={{ height: `${row.h}%` }}
-                />
-                <span className="DashboardBarLbl">{row.m}</span>
+                  title={`${row.percentage.toFixed(1)}%`}
+                >
+                  {row.h > 20 && <span className="DashboardBarPct">{row.percentage.toFixed(0)}%</span>}
+                </div>
+                <span className="DashboardBarLbl">{row.label}</span>
               </div>
             ))}
           </div>
           <div className="DashboardChartFoot">
-            Latest bar: ${latestM}M (Current) · NVDA momentum {nvdaPct >= 0 ? '+' : ''}
+            Latest bar: ${latestM}M ({tf}) · NVDA momentum {nvdaPct >= 0 ? '+' : ''}
             {nvdaPct.toFixed(2)}% (live)
           </div>
         </section>
@@ -545,6 +691,110 @@ export default function Dashboard({
       >
         <IconChat />
       </button>
+
+      {selectedStockDetails && (
+        <div className="DashboardModalOverlay" onClick={() => setSelectedStockDetails(null)}>
+          <div className="DashboardModal" onClick={(e) => e.stopPropagation()}>
+            <div className="DashboardModalHeader">
+              <div>
+                <h2 className="DashboardModalTitle">
+                  {displaySymbol(selectedStockDetails.ticker)}
+                  <span className="DashboardModalSubtitle">{selectedStockDetails.name}</span>
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="DashboardModalClose"
+                onClick={() => setSelectedStockDetails(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="DashboardModalContent">
+              <div className="DashboardModalGrid">
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">Current Price</div>
+                  <div className="DashboardModalValue">{formatPrice(selectedStockDetails)}</div>
+                  <div
+                    className={`DashboardModalChange ${pctVal(selectedStockDetails) >= 0 ? 'positive' : 'negative'}`}
+                  >
+                    {pctVal(selectedStockDetails) >= 0 ? '▲' : '▼'} {pctVal(selectedStockDetails).toFixed(2)}%
+                  </div>
+                </div>
+
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">Market Cap</div>
+                  <div className="DashboardModalValue">{formatLargeNumber(selectedStockDetails.market_cap)}</div>
+                </div>
+
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">P/E Ratio</div>
+                  <div className="DashboardModalValue">
+                    {selectedStockDetails.pe_ratio != null && !Number.isNaN(Number(selectedStockDetails.pe_ratio))
+                      ? Number(selectedStockDetails.pe_ratio).toFixed(2)
+                      : '—'}
+                  </div>
+                </div>
+
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">Volume (Today)</div>
+                  <div className="DashboardModalValue">{formatVolume(selectedStockDetails.volume)}</div>
+                </div>
+
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">Avg Volume (3M)</div>
+                  <div className="DashboardModalValue">{formatVolume(selectedStockDetails.avg_volume_3m)}</div>
+                </div>
+
+                <div className="DashboardModalCard">
+                  <div className="DashboardModalLabel">52-Week Range</div>
+                  <div className="DashboardModalSubValue">
+                    Low: {formatPrice({
+                      ...selectedStockDetails,
+                      price: selectedStockDetails.fifty_two_week_low ?? null,
+                    })}
+                  </div>
+                  <div className="DashboardModalSubValue">
+                    High: {formatPrice({
+                      ...selectedStockDetails,
+                      price: selectedStockDetails.fifty_two_week_high ?? null,
+                    })}
+                  </div>
+                </div>
+
+                {selectedStockDetails.exchange && (
+                  <div className="DashboardModalCard">
+                    <div className="DashboardModalLabel">Exchange</div>
+                    <div className="DashboardModalValue" style={{ fontSize: '13px' }}>
+                      {selectedStockDetails.exchange}
+                    </div>
+                  </div>
+                )}
+
+                {selectedStockDetails.currency && (
+                  <div className="DashboardModalCard">
+                    <div className="DashboardModalLabel">Currency</div>
+                    <div className="DashboardModalValue" style={{ fontSize: '13px' }}>
+                      {selectedStockDetails.currency}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="DashboardModalFooter">
+                <button type="button" className="DashboardModalCancelBtn" onClick={() => setSelectedStockDetails(null)}>
+                  Close
+                </button>
+                <button type="button" className="DashboardModalActionBtn" onClick={handleGoToAnalysis}>
+                  View Full Analysis →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

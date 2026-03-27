@@ -222,6 +222,21 @@
   color: #0d9488;
   border: 1px solid rgba(16, 185, 129, 0.25);
   background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.TerminalShell-iconBtn:hover {
+  background: rgba(209, 250, 229, 0.75);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #0f766e;
+}
+
+.TerminalShell-iconBtnGroup {
+  position: relative;
 }
 
 .TerminalShell-marketPill {
@@ -352,6 +367,139 @@
   color: #0d9488;
   background: rgba(236, 253, 245, 0.95);
   border-top: 1px solid rgba(167, 243, 208, 0.65);
+}
+
+/* Dropdown menus */
+.TerminalShell-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  min-width: 240px;
+  z-index: 1000;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.TerminalShell-dropdownHeader {
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #0d9488;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(240, 253, 244, 0.6);
+}
+
+.TerminalShell-dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #374151;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.TerminalShell-dropdownItem:hover {
+  background: rgba(16, 185, 129, 0.08);
+  color: #0f766e;
+}
+
+.TerminalShell-dropdownLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.TerminalShell-dropdownLabel input {
+  cursor: pointer;
+}
+
+.TerminalShell-dropdownFooter {
+  padding: 8px 14px;
+  border-top: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(240, 253, 244, 0.4);
+}
+
+.TerminalShell-dropdownLink {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d9488;
+  text-decoration: none;
+  transition: color 0.1s;
+}
+
+.TerminalShell-dropdownLink:hover {
+  color: #0f766e;
+  text-decoration: underline;
+}
+
+.TerminalShell-notifDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  flex-shrink: 0;
+}
+
+.TerminalShell-notifTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.TerminalShell-notifTime {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.TerminalShell-userCardDropdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+  background: rgba(240, 253, 244, 0.4);
+}
+
+.TerminalShell-search {
+  cursor: text;
+}
+
+.TerminalShell-search:focus {
+  outline: none;
+  border-color: rgba(16, 185, 129, 0.5);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 @media (max-width: 960px) {
